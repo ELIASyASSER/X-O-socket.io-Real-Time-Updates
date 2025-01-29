@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X-O Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            padding: 0;
+            margin: 0;
+            height: 86vh;
+            display: grid;
+            place-content: center;
+            place-items: center;
+        }
+
+        .taken {
+            pointer-events: none;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 150px);
+        }
+
+        .playerss {
+            display: flex;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .player {
+            font-size: 30px;
+            margin-bottom: 16px;
+        }
+
+        input#name1 {
+            padding: 7px;
+            font-size: 25px;
+            border: none;
+            outline: 3px solid blueviolet;
+            margin-bottom: 15px;
+        }
+
+        .playerss button {
+            border: none;
+            font-size: 22px;
+            cursor: pointer;
+            padding: 12px 26px;
+            background-color: rgb(197, 5, 117);
+            color: white;
+        }
+
+        .cell {
+            width: 150px;
+            height: 150px;
+            cursor: pointer;
+            background-color: rgb(193, 193, 229);
+            border: 3px solid white;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 4rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+        <h1 class="gameStatus" >Player Status Here</h1>
+    <div class="board" ></div>
+    <div class="winner"></div>
+    <button class="reset" style="border: none; background-color: black; color: white;padding: 12px 70px;padding: 8px;font-size: 24px;cursor: pointer; margin-top: 16px; ">Reset</button>
+
+    <script type="module">
+        import { io } from "https://cdn.socket.io/4.8.1/socket.io.esm.min.js";
+        const socket = io();
+
+        const board = document.querySelector(".board");
+        const gameStatus = document.querySelector(".gameStatus");
+        const btn = document.querySelector("button.reset");
+
+        let players = [];
+        let playerRole = null;
+
+        // Create cells for the board
+        for (let i = 0; i < 9; i++) {
+            const cell = document.createElement("div");
+            cell.dataset.index = i;
+            cell.classList.add("cell");
+            board.appendChild(cell);
+        }
+
+
+
+        // Listen for player role
+        socket.on("playerRole", (data) => {
+            playerRole = data;
+            gameStatus.textContent = `You are ${data}. Waiting for the other player.`;
+        });
+
+        // Start the game
+        socket.on("gameStart", (state) => {
+            updateBoard(state.board);
+            gameStatus.textContent = `${playerRole}'s Turn`;
+        });
+
+        // Update game state
+        socket.on("updateGame", (state) => {
+            updateBoard(state.board);
+            if (state.winner) {
+                gameStatus.textContent = state.winner === "DRAW" ? "It's a DRAW!" : `Player ${state.winner} wins!`;
+            } else {
+                gameStatus.textContent = `It's ${state.currentPlayer}'s Turn`;
+            }
+        });
+        // handle reset the game
+        socket.on("resetGameState",(state)=>{
+            updateBoard(state.board)
+            gameStatus.textContent = `Game Reset it is ${state.currentPlayer} Turn's`
+            document.querySelectorAll(".cell").forEach((cell)=>cell.classList.remove("taken"))
+        })
+        // Handle cell clicks
+        board.addEventListener("click", (e) => {
+            if (e.target.classList.contains("cell") && !e.target.classList.contains("taken")) {
+                socket.emit("makeMove", parseInt(e.target.dataset.index));
+            }
+        });
+
+        // Update the board UI
+        function updateBoard(boardState) {
+            const cells = document.querySelectorAll(".cell");
+            cells.forEach((cell, idx) => {
+                cell.textContent = boardState[idx] || "";
+                if (boardState[idx]) cell.classList.add("taken");
+            });
+        }
+        btn.addEventListener("click",()=>{
+            socket.emit("resetGame")
+        })
+    </script>
+</body>
+</html>
